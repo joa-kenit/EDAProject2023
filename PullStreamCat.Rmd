@@ -1,0 +1,53 @@
+---
+title: "PullStreamCat"
+author: "Annabelle White"
+date: "2023-04-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse);library(dataRetrieval);library(lubridate)
+```
+
+## StreamCat Metrics REST API
+
+```{r function}
+
+StreamCat.get <- function(name, state) {
+
+  #Retrieve the website contents 
+  report <- read_csv(paste0('https://java.epa.gov/StreamCAT/metrics?name=', name,
+                            '&areaOfInterest=catchment&state=',state))
+  
+  #Construct a dataframe from the scraped data
+  df <- data.frame(report)
+  
+  Sys.sleep(1) # Scraping etiquette
+  return(df)
+}
+
+```
+
+## Pull Raw Data
+
+```{r pull raw data}
+
+NC_temp08 <- StreamCat.get("temp08", "NC")
+NC_temp09 <- StreamCat.get("temp09", "NC")
+SC_temp08 <- StreamCat.get("temp08", "SC")
+SC_temp09 <- StreamCat.get("temp09", "SC")
+
+NC_precip08 <- StreamCat.get("precip08", "NC")
+NC_precip09 <- StreamCat.get("precip09", "NC")
+SC_precip08 <- StreamCat.get("precip08", "SC")
+SC_precip09 <- StreamCat.get("precip09", "SC")
+
+#names = c("tmean08", "tmean09", "precip08", "precip09")
+
+#for (i in range(length(names))) {
+#  NC_df <- StreamCat.get(names[i], "NC")
+#  SC_df <- StreamCat.get(names[i], "SC")
+#}
+
+```
