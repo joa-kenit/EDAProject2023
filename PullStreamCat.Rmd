@@ -18,7 +18,7 @@ StreamCat.get <- function(name, state) {
 
   #Retrieve the website contents 
   report <- read_csv(paste0('https://java.epa.gov/StreamCAT/metrics?name=', name,
-                            '&areaOfInterest=catchment&state=',state))
+                            '&state=',state))
   
   #Construct a dataframe from the scraped data
   df <- data.frame(report)
