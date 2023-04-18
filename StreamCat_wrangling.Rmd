@@ -1,0 +1,197 @@
+---
+title: "PullStreamCat"
+author: "Annabelle White, Joanna Huertas"
+date: "2023-04-10"
+output: html_document
+geometry: margin=2.54cm
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse);library(dataRetrieval);library(lubridate)
+#install.packages("remotes")
+library(remotes)
+#install_github("USEPA/StreamCatTools", build_vignettes=TRUE)
+library("StreamCatTools")
+library(reshape2)
+library(lubridate) #loading
+library(here) #loading
+library(cowplot) #loading
+#Add pre-set themes <--NEW
+library(ggthemes)
+library(dplyr)
+
+getwd() #Checking working directory
+here()
+
+## StreamCat Metrics REST API
+```
+
+
+```{r, , include=FALSE, message = FALSE, warning = FALSE}
+StreamCat.get <- function(name, state) {
+
+  #Retrieve the website contents 
+  report <- read_csv(paste0('https://java.epa.gov/StreamCAT/metrics?name=', name,
+                            '&state=',state))
+  
+  #Construct a dataframe from the scraped data
+  df <- data.frame(report)
+  
+  Sys.sleep(1) # Scraping etiquette
+  return(df)
+}
+
+#data wrangling: difference between precip 2008 - 2009
+
+#pipe function add column called YEAR}
+#rename the columns TMEAN 09CAT & TMEAN 08CAT- TMEAN CAT, Combine them
+#variance between states
+#Mean Elevation vs PctIce, evergreen forest
+#elev vs temp
+#pop10
+
+```
+## Pull Raw Data
+```{r pull raw data, echo=FALSE, message=FALSE}
+NC_temp08 <- StreamCat.get("precip8110", "NC")
+NC_temp09 <- StreamCat.get("temp09", "NC")
+SC_temp08 <- StreamCat.get("temp08", "SC")
+SC_temp09 <- StreamCat.get("temp09", "SC")
+
+NC_precip08 <- StreamCat.get("precip08", "NC")
+NC_precip09 <- StreamCat.get("precip09", "NC")
+SC_precip08 <- StreamCat.get("precip08", "SC")
+SC_precip09 <- StreamCat.get("precip09", "SC")
+
+vignette("Introduction", "StreamCatTools")
+
+sc_get_data(state='NC')
+sc_nlcd(year='2001', aoi='catchment',comid='179,1337,1337420')
+
+
+```
+
+
+```{r pull raw data}
+
+df <- readr::read_csv("https://java.epa.gov/StreamCAT/metrics?name=fert&areaOfInterest=catchment&comid=179", show_col_types = FALSE)
+knitr::kable(df)
+
+region_params <- sc_get_params(param='areaOfInterest')
+region_params
+name_params <- sc_get_params(param='name')
+
+metric='mast_2014'
+fullname <- sc_fullname(metric)
+print(paste0('The full name for ',metric, ' is: ', paste(fullname,collapse = ', ')))
+```
+
+```{r, echo=FALSE, message=FALSE}
+# Create a custom plot theme
+
+my_theme <- theme_base() + 
+  theme(
+    line = element_line(
+      color='black',
+      linewidth =1
+    ),
+    plot.background =   element_rect(
+      color='yellow',
+      fill='#FFFF99'
+    ),
+    axis.text = element_text(size = 11),
+    plot.title =        element_text(
+      size=14,
+      color='black'
+    ),
+    axis.title = element_text(size = 14, face = "bold"),
+    legend.background = element_rect(
+      color='grey',
+      fill = 'orange'
+    ),
+    legend.title = element_text(
+      color='blue'
+    )
+    
+  )
+```
+
+```{r data wrangling, message = FALSE, warning = FALSE}
+#4 
+#Mean Annual Stream Temp and Mixed Deciduous/Evergreen Forest NC 2008 vs 2013
+NC_annual.stream.temp2008.wr <- StreamCat.get("mast_2008", "NC")%>%
+  na.omit()
+NC_annual.stream.temp2013.wr <- StreamCat.get("mast_2013", "NC")%>%
+  na.omit()
+
+NC_mixed.evergreen2008.wr <- StreamCat.get("pctmxfst2008", "NC")%>%
+  na.omit()
+NC_mixed.evergreen2013.wr <- StreamCat.get("pctmxfst2013", "NC")%>%
+  na.omit()
+
+#Mean Annual Stream Temp and Mixed Deciduous/Evergreen Forest CA 2008 vs 2013
+CA_annual.stream.temp2008.wr <- StreamCat.get("mast_2008", "CA")%>%
+  na.omit()
+CA_annual.stream.temp2013.wr <- StreamCat.get("mast_2013", "CA")%>%
+  na.omit()
+
+CA_mix.evergreen2008.wr <- StreamCat.get("pctmxfst2008", "CA")%>%
+  na.omit()
+CA_mix.evergreen2013.wr <- StreamCat.get("pctmxfst2013", "CA")%>%
+  na.omit()
+
+# Modify column name
+colnames(NC_annual.stream.temp2008.wr)[3] <- "MAST"
+colnames(NC_mix.evergreen2008.wr)[7] <- "PercentMxFst"
+
+#mutate
+NC_stream.temp_2008.2013 <- mutate(NC_annual.stream.temp2008, NC_annual.stream.temp2013)
+
+NC_stream.temp_2008.2013 <- NC_stream.temp_2008.2013 %>%
+  mutate(COMID = factor(COMID))
+
+
+#wide to long
+
+NC_stream.temp_2008.2013.long <- melt(NC_stream.temp_2008.2013, id.vars = c("COMID", "STATE"),
+                  measure.vars = c("MAST_2008", "MAST_2013"), 
+                  variable.name = "MAST_year", 
+                  value.name = "MAST_value")
+tail(NC_stream.temp_2008.2013.long, 5)
+```
+
+```{r, message = FALSE, warning = FALSE}
+NC_stream.temp_2008vs2013 <- NC_stream.temp_2008.2013.long %>% 
+    ggplot(
+    mapping = aes(
+      x=COMID,
+      y=MAST_value,
+      color=MAST_year)
+    ) + 
+  geom_point()+
+  # Add a line of best fit and color it black
+  geom_smooth(method = "lm", se = FALSE, color = "black") +
+  labs(title="NC stream temperature 2008 vs 2013", x="NC COMID", y="MAST Value (°C)", color="MAST_year")+
+  # Adjust the x and y limits to hide extreme values
+  xlim(0, 125) +
+  ylim(0, 50)+
+  theme_gray()
+
+
+NC_stream.temp_2008vs2013 <- NC_stream.temp_2008.2013.long %>% 
+    ggplot(
+    mapping = aes(
+      x=COMID,
+      y=MAST_value,
+      color=MAST_year)
+    )+
+  geom_point() +
+  scale_x_discrete()
+
+print(NC_stream.temp_2008vs2013)
+
+```
+
