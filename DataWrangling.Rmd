@@ -1,0 +1,311 @@
+---
+title: "Durham Water Quality Data Wrangling"
+author: "Joanna Huertas"
+date: "Spring 2023"
+output: pdf_document
+geometry: margin=2.54cm
+fig_height: 3
+fig_width: 4
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+#This code chunk will tidy your knit PDF files, wrapping long code lines
+#install.packages('formatR')
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=80), tidy=TRUE, echo=TRUE)
+```
+
+
+## OVERVIEW
+
+Pull Data from City of Durham
+
+## Directions
+
+1.  Rename this file `<FirstLast>_A04_DataWrangling.Rmd` (replacing `<FirstLast>` with your first and last name).
+2. Change "Student Name" on line 3 (above) with your name.
+3. Work through the steps, **creating code and output** that fulfill each instruction.
+4. Be sure to **answer the questions** in this assignment document.
+5. When you have completed the assignment, **Knit** the text and code into a single PDF file.
+
+## Set up your session 
+
+1a. Load the `tidyverse`,  `lubridate`, and `here` packages into your session.
+
+1b. Check your working directory.
+
+1c. Read in all four raw data files associated with the EPA Air dataset, being sure to set string columns to be read in a factors. See the README file for the EPA air datasets for more information (especially if you have not worked with air quality data previously). 
+
+2. Apply the `glimpse()` function to reveal the dimensions, column names, and structure of each dataset. 
+
+```{r loading libraries, message = FALSE}
+
+library(tidyverse)
+library(remotes)
+library(reshape2)
+library(lubridate) 
+library(here) 
+library(cowplot) 
+
+#Add pre-set themes
+library(ggthemes)
+library(dplyr)
+
+#install.packages('extrafont')
+library(extrafont)
+font_import()
+loadfonts(device = "win")
+windowsFonts()
+
+getwd() #Checking working directory
+#here()
+
+```
+
+
+## Wrangle individual datasets to create processed files.
+
+3. Change date columns to be date objects.
+
+4. Select the following columns: Date, DAILY_AQI_VALUE, Site.Name, AQS_PARAMETER_DESC, COUNTY, SITE_LATITUDE, SITE_LONGITUDE
+
+5. For the PM2.5 datasets, fill all cells in AQS_PARAMETER_DESC with "PM2.5" (all cells in this column should be identical).
+
+6. Save all four processed datasets in the Processed folder. Use the same file names as the raw files but replace "raw" with "processed".
+
+```{r}
+#Read csv
+water.durham <- read.csv("./Data/Raw/ParamDurhamData_raw.csv",stringsAsFactors = TRUE)
+
+#reveal dimensions, column names
+glimpse(water.durham)
+
+# extract time part from date, date column to be date object
+nchar(water.durham$Date.Time)
+water.durham$Date.Time <- as.character(water.durham$Date.Time)
+water.durham$Date.Time <- substr(water.durham$Date.Time,1,nchar(water.durham$Date.Time)-5)%>%
+  mdy()
+
+colnames(water.durham)[colnames(water.durham) == "Date.Time"] <- "Date"
+
+#Select only the useful columns
+water.durham.select <-  select (water.durham, id, Station.Name, Parameter, 
+                                Date, Value,Unit, Sky.Condition)%>%
+  drop_na(Value)
+
+#finding unique values
+unique(water.durham.select$Parameter)
+
+#wrangle
+water.durham.wrangle <- 
+  water.durham.select %>%
+  group_by(Date, Station.Name, Parameter, Value) %>%
+  #summarise(meanAQI = mean(DAILY_AQI_VALUE)) %>%
+  mutate(Month=month(Date),Year=as.factor(year(Date)))
+
+#6
+
+```
+
+
+## Combine datasets
+
+7. Combine the four datasets with `rbind`. Make sure your column names are identical prior to running this code.
+
+8. Wrangle your new dataset with a pipe function (%>%) so that it fills the following conditions: 
+
+  * Include all sites that the four data frames have in common: "Linville Falls", "Durham Armory", "Leggett", "Hattie Avenue", "Clemmons Middle", "Mendenhall School", "Frying Pan Mountain", "West Johnston Co.", "Garinger High School", "Castle Hayne", "Pitt Agri. Center", "Bryson City", "Millbrook School" (the function `intersect` can figure out common factor levels - but it will include sites with missing site information...) 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Create a custom plot theme
+
+my_theme <- theme_gray() + 
+  theme(
+    line = element_line(
+      color='black',
+      linewidth =1
+    ),
+    plot.background =   element_rect(
+      color='black',
+      fill='white'
+    ),
+    axis.text = element_text(size = 11),
+    plot.title =        element_text(
+      size=16,
+      family="Vivaldi",
+      face = "bold",
+      color='black'
+    ),
+    axis.title = element_text(size = 14, face = "bold"),
+    legend.background = element_rect(
+      color='black',
+      fill = 'white'
+    ),
+    legend.title = element_text(size=13,  
+                                family="Vivaldi",
+      color='black'
+    )
+  )
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#8 
+water.alkalinity.durham <- water.durham.wrangle %>%
+  filter(Parameter == "Alkalinity")%>%
+    ggplot(
+    mapping = aes(
+      x=Date,
+      y=Value,
+      color=Station.Name)
+    ) + 
+  geom_point()+
+  geom_line()+
+  # Add a line of best fit and color it black
+  #geom_smooth(method = "lm", se = FALSE, color = "black") +
+  labs(title="Alkalinity in Water", x="Year", y="Alkalinity (mgCaCO3/L)", color="Station Name")+
+  # Adjust the x and y limits to hide extreme values
+  #xlim(0, 125) +
+  #ylim(0, 50)+
+  scale_x_date(date_breaks = "years", date_labels = "%Y")+
+  my_theme
+print(water.alkalinity.durham)
+
+#9
+
+
+water.nitrogen.durham <- water.durham.wrangle %>%
+  filter(Parameter == "Nitrate + Nitrite as N")%>%
+    ggplot(
+    mapping = aes(
+      x=Date,
+      y=Value,
+      color=Station.Name)
+    ) + 
+  geom_point()+
+  geom_line()+
+  # Add a line of best fit and color it black
+  #geom_smooth(method = "lm", se = FALSE, color = "black") +
+  labs(title="Nitrogen in Water", x="Year", y="Nitrogen (mg/L)", color="Station Name")+
+  # Adjust the x and y limits to hide extreme values
+  #xlim(0, 125) +
+  #ylim(0, 50)+
+  #scale_x_date(date_breaks = "years", date_labels = "%Y")+
+  geom_hline(yintercept = 10, color = "red",  size = 1)+
+  my_theme
+
+print(water.nitrogen.durham)
+
+#10
+
+water.fluoride.durham <- water.durham.wrangle %>%
+  filter(Parameter == "Fluoride")%>%
+    ggplot(
+    mapping = aes(
+      x=Date,
+      y=Value,
+      color=Station.Name)
+    ) + 
+  geom_point()+
+  geom_line()+
+  # Add a line of best fit and color it black
+  #geom_smooth(method = "lm", se = FALSE, color = "black") +
+  labs(title="Fluoride", x="Year", y="Fluoride (mg/L)", color="Station Name")+
+  # Adjust the x and y limits to hide extreme values
+  #xlim(0, 125) +
+  #ylim(0, 50)+
+  #scale_x_date(date_breaks = "years", date_labels = "%Y")+
+  geom_hline(yintercept = 4, color = "red",  size = 1)+
+  my_theme
+
+print(water.fluoride.durham)
+
+#11
+
+```
+
+
+## Generate summary tables
+
+12. Use the split-apply-combine strategy to generate a summary data frame. Data should be grouped by site, month, and year. Generate the mean AQI values for ozone and PM2.5 for each group. Then, add a pipe to remove instances where mean **ozone** values are not available (use the function `drop_na` in your pipe). It's ok to have missing mean PM2.5 values in this result. 
+
+13. Call up the dimensions of the summary dataset.
+
+```{r}
+
+Plot.get <- function(parameter, MCL) {
+  plot <- water.durham.wrangle %>%
+  filter(Parameter == parameter)%>%
+    ggplot(
+    mapping = aes(
+      x=Date,
+      y=Value,
+      color=Station.Name)
+    ) + 
+  geom_point()+
+  geom_line()+
+  # Add a line of best fit and color it black
+  #geom_smooth(method = "lm", se = FALSE, color = "black") +
+  labs(title="Fluoride", x="Year", y="Fluoride (mg/L)", color="Station Name")+
+  # Adjust the x and y limits to hide extreme values
+  #xlim(0, 125) +
+  #ylim(0, 50)+
+  #scale_x_date(date_breaks = "years", date_labels = "%Y")+
+  geom_hline(yintercept = MCL, color = "red",  size = 1)+
+  my_theme
+  #Sys.sleep(1) # Scraping etiquette
+  return(plot)
+}
+
+
+water.iron.durham <- Plot.get("Iron", 300)
+print(water.iron.durham)
+```
+
+14. Why did we use the function `drop_na` rather than `na.omit`?
+
+```{r}
+#pull(water.durham.wrangle[2, "Unit"])
+# Find the row where 'z' equals 'C'
+#row_c <- water.durham.wrangle$Parameter == parameter
+
+# Extract the value in the 'y' column for that row
+#y_for_c <- pull(water.durham.wrangle[water.durham.wrangle$Parameter == "Iron" , "Unit"])[2]
+
+
+Plot.get <- function(parameter, MCL, plottitle) {
+  plot <- water.durham.wrangle %>%
+  filter(Parameter == parameter)%>%
+    ggplot(
+    mapping = aes(
+      x=Date,
+      y=Value,
+      color=Station.Name)
+    ) + 
+  geom_point()+
+  geom_line()+
+  # Add a line of best fit and color it black
+  #geom_smooth(method = "lm", se = FALSE, color = "black") +
+  labs(title=plottitle, x="Year", y=paste0(plottitle," ","(", pull(water.durham.wrangle[water.durham.wrangle$Parameter == "Iron" , "Unit"])[2],")"), 
+       color="Station Name")+
+  # Adjust the x and y limits to hide extreme values
+  #xlim(0, 125) +
+  #ylim(0, 50)+
+  #scale_x_date(date_breaks = "years", date_labels = "%Y")+
+  geom_hline(yintercept = MCL, color = "red",  size = 1)+
+  my_theme
+  #Sys.sleep(1) # Scraping etiquette
+  return(plot)
+}
+
+water.iron.durham <- Plot.get("Iron", 300,"Iron" )
+print(water.iron.durham)
+water.chromium.durham <- Plot.get("Chromium", 100,"Chromium" )
+water.iron.durham <- Plot.get("Iron", 300,"Iron" )
+
+
+```
+
+
