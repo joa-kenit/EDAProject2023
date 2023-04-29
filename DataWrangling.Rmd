@@ -56,12 +56,15 @@ library(dplyr)
 library(extrafont)
 font_import()
 loadfonts(device = "win")
-windowsFonts()
+#windowsFonts()
 
 getwd() #Checking working directory
 #here()
 
-https://www.waterqualitydata.us/#mimeType=csv&providers=NWIS&providers=STEWARDS&providers=STORET
+#install.packages("GGally")
+library(GGally)
+
+#https://www.waterqualitydata.us/#mimeType=csv&providers=NWIS&providers=STEWARDS&providers=STORET
 
 ```
 
@@ -107,7 +110,7 @@ water.durham.wrangle <-
   mutate(Month=month(Date),Year=as.factor(year(Date)))
 
 #6
-
+summary(water.durham.wrangle)
 ```
 
 
@@ -116,8 +119,6 @@ water.durham.wrangle <-
 7. Combine the four datasets with `rbind`. Make sure your column names are identical prior to running this code.
 
 8. Wrangle your new dataset with a pipe function (%>%) so that it fills the following conditions: 
-
-  * Include all sites that the four data frames have in common: "Linville Falls", "Durham Armory", "Leggett", "Hattie Avenue", "Clemmons Middle", "Mendenhall School", "Frying Pan Mountain", "West Johnston Co.", "Garinger High School", "Castle Hayne", "Pitt Agri. Center", "Bryson City", "Millbrook School" (the function `intersect` can figure out common factor levels - but it will include sites with missing site information...) 
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -136,7 +137,7 @@ my_theme <- theme_gray() +
     axis.text = element_text(size = 11),
     plot.title =        element_text(
       size=16,
-      family="Vivaldi",
+      family="Arial",
       face = "bold",
       color='black'
     ),
@@ -146,7 +147,7 @@ my_theme <- theme_gray() +
       fill = 'white'
     ),
     legend.title = element_text(size=13,  
-                                family="Vivaldi",
+                                family="Arial",
       color='black'
     )
   )
@@ -299,7 +300,7 @@ Plot.get <- function(parameter, MCL, plottitle) {
   #ylim(0, 50)+
   #scale_x_date(date_breaks = "years", date_labels = "%Y")+
   my_theme+
-    geom_hline(aes(yintercept= 4, linetype = ""), colour= 'red', size = 1) +
+    geom_hline(aes(yintercept= MCL, linetype = ""), colour= 'red', size = 1) +
     scale_linetype_manual(name = "MCL", values = c(1), 
                       guide = guide_legend(override.aes = list(color = c("red"))))
   #Sys.sleep(1) # Scraping etiquette
@@ -310,12 +311,86 @@ water.iron.durham <- Plot.get("Iron", 300,"Iron" )
 print(water.iron.durham)
 water.chromium.durham <- Plot.get("Chromium", 100,"Chromium" )
 print(water.chromium.durham)
+water.cad.durham <- Plot.get("Cadmium", 30,"Cadmium" )
+water.iron.durham <- Plot.get("Iron", 300,"Iron" )
+water.iron.durham <- Plot.get("Iron", 300,"Iron" )
 water.iron.durham <- Plot.get("Iron", 300,"Iron" )
 
+Plot.get <- function(parameter, MCL, plottitle) {
+  plot <- water.durham.wrangle %>%
+  filter(Parameter == parameter)%>%
+    ggplot(
+    mapping = aes(
+      x=Date,
+      y=Value,
+      color=Station.Name)
+    ) + 
+  geom_point()+
+  geom_line(color = "blue")+
+  labs(title=plottitle, x="Year", y=paste0(plottitle," ","(", pull(water.durham.wrangle[water.durham.wrangle$Parameter == "Iron" , "Unit"])[2],")"), 
+       color="Station Name")+
+  my_theme+
+    geom_hline(aes(yintercept= MCL, linetype = ""), colour= 'red', size = 1) +
+    scale_linetype_manual(name = "MCL", values = c(1), 
+                      guide = guide_legend(override.aes = list(color = c("red"))))
+  #Sys.sleep(1) # Scraping etiquette
+  return(plot)
+}
 
+water.iron.durham <- Plot.get("Iron", 300,"Iron" )
+print(water.iron.durham)
 
+```
+
+```{r}
 
 
 ```
 
+```{r}
+
+#test, this one is working with values
+Plot2.get <- function(parameter1, parameter2) {
+  plot <- water.durham.wrangle %>%
+    filter(Parameter == "Iron" | Parameter == "Manganese" ) %>%
+    ggplot(
+      mapping = aes(
+        x=Date,
+        y=Value,
+        color=Parameter)
+    ) + 
+    geom_point()+
+    geom_line()+
+    facet_wrap(~Station.Name, scales = "free_y") +
+  scale_color_manual(values = c("red", "blue")) +
+  labs(title = paste0("Relationship between - ", "Iron", " and ", "Manganese"), x = "Year", y=paste0("Value"," ","(", pull(water.durham.wrangle[water.durham.wrangle$Parameter == "Iron", "Unit"])[2],")")) +
+    my_theme+
+    #Sys.sleep(1) # Scraping etiquette
+    return(plot)
+}
+
+#converting to a function
+Plot2.get <- function(parameter1, parameter2) {
+  plot <- water.durham.wrangle %>%
+    filter(Parameter == parameter1 | Parameter == parameter2 ) %>%
+    ggplot(
+      mapping = aes(
+        x=Date,
+        y=Value,
+        color=Parameter)
+    ) + 
+    geom_point()+
+    geom_line()+
+    facet_wrap(~Station.Name, scales = "free_y") +
+  scale_color_manual(values = c("red", "blue")) +
+  labs(title = paste0("Relationship between - ", "parameter1", " and ", "parameter2"), x = "Year", y=paste0("Value"," ","(", pull(water.durham.wrangle[water.durham.wrangle$Parameter == "Iron", "Unit"])[2],")")) +
+    my_theme+
+    #Sys.sleep(1) # Scraping etiquette
+    return(plot)
+}
+
+#relationship iron and manganese
+water.iron.mn <- Plot2.get("Iron", "Manganese")
+print(water.iron.mn)
+```
 
