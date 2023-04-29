@@ -8,7 +8,7 @@
 
 ```{r setup, include=FALSE}
 # Set your working directory
-
+setwd("C:/Users/joann/Documents/EDAProject2023")
 # Load your packages
 
 # Set your ggplot theme

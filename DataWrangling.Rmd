@@ -61,6 +61,8 @@ windowsFonts()
 getwd() #Checking working directory
 #here()
 
+https://www.waterqualitydata.us/#mimeType=csv&providers=NWIS&providers=STEWARDS&providers=STORET
+
 ```
 
 
@@ -209,16 +211,18 @@ water.fluoride.durham <- water.durham.wrangle %>%
       color=Station.Name)
     ) + 
   geom_point()+
-  geom_line()+
+  geom_line(color = "blue")+
   # Add a line of best fit and color it black
   #geom_smooth(method = "lm", se = FALSE, color = "black") +
-  labs(title="Fluoride", x="Year", y="Fluoride (mg/L)", color="Station Name")+
   # Adjust the x and y limits to hide extreme values
   #xlim(0, 125) +
   #ylim(0, 50)+
   #scale_x_date(date_breaks = "years", date_labels = "%Y")+
-  geom_hline(yintercept = 4, color = "red",  size = 1)+
-  my_theme
+  labs(title="Fluoride", x="Year", y="Fluoride (mg/L)", color="Station Name")+
+  my_theme+
+    geom_hline(aes(yintercept= 4, linetype = ""), colour= 'red', size = 1) +
+    scale_linetype_manual(name = "MCL", values = c(1), 
+                      guide = guide_legend(override.aes = list(color = c("red"))))
 
 print(water.fluoride.durham)
 
@@ -285,7 +289,7 @@ Plot.get <- function(parameter, MCL, plottitle) {
       color=Station.Name)
     ) + 
   geom_point()+
-  geom_line()+
+  geom_line(color = "blue")+
   # Add a line of best fit and color it black
   #geom_smooth(method = "lm", se = FALSE, color = "black") +
   labs(title=plottitle, x="Year", y=paste0(plottitle," ","(", pull(water.durham.wrangle[water.durham.wrangle$Parameter == "Iron" , "Unit"])[2],")"), 
@@ -294,8 +298,10 @@ Plot.get <- function(parameter, MCL, plottitle) {
   #xlim(0, 125) +
   #ylim(0, 50)+
   #scale_x_date(date_breaks = "years", date_labels = "%Y")+
-  geom_hline(yintercept = MCL, color = "red",  size = 1)+
-  my_theme
+  my_theme+
+    geom_hline(aes(yintercept= 4, linetype = ""), colour= 'red', size = 1) +
+    scale_linetype_manual(name = "MCL", values = c(1), 
+                      guide = guide_legend(override.aes = list(color = c("red"))))
   #Sys.sleep(1) # Scraping etiquette
   return(plot)
 }
@@ -303,7 +309,11 @@ Plot.get <- function(parameter, MCL, plottitle) {
 water.iron.durham <- Plot.get("Iron", 300,"Iron" )
 print(water.iron.durham)
 water.chromium.durham <- Plot.get("Chromium", 100,"Chromium" )
+print(water.chromium.durham)
 water.iron.durham <- Plot.get("Iron", 300,"Iron" )
+
+
+
 
 
 ```
