@@ -1,5 +1,20 @@
+---
+fontsize: 12pt
+author: "Joanna Huertas"
+date: "Spring 2023"
+output:
+  pdf_document: default
+  fontsize: default
+subtitle: "https://github.com/joa-kenit/EDAProject2023"
+title: Evaluating the correlation between various water contaminants throughout the
+  Ellerbe Creek Watershed
+geometry: margin=2.54cm
+editor_options: 
+  chunk_output_type: console
+---
+
 \newpage
-\tableofcontents 
+\tableofcontents
 \newpage
 \listoftables 
 \newpage
@@ -11,6 +26,30 @@
 setwd("C:/Users/joann/Documents/EDAProject2023")
 # Load your packages
 
+library(tidyverse)
+library(remotes)
+library(reshape2)
+library(lubridate) 
+library(here) 
+library(cowplot) 
+
+#Add pre-set themes
+library(ggthemes)
+library(dplyr)
+
+#install.packages('extrafont')
+library(extrafont)
+font_import()
+#loadfonts(device = "win")
+#windowsFonts()
+
+getwd() #Checking working directory
+#here()
+
+#install.packages("GGally")
+library(GGally)
+
+
 # Set your ggplot theme
 
 # Load your datasets
@@ -18,29 +57,138 @@ setwd("C:/Users/joann/Documents/EDAProject2023")
 ```
 
 
+# Introduction
+The growing demand for freshwater coupled with human activities has resulted in increased water pollution. Water contamination is a significant environmental concern, with potential health risks to humans and wildlife. The Ellerbe Creek Watershed, located in North Carolina, is home to diverse aquatic species and provides drinking water to local communities. However, it is also vulnerable to water contamination from various sources, including agriculture, urban runoff, and industrial activities.
+
+This project aims to evaluate the correlation between various water contaminants throughout the Ellerbe Creek Watershed. The study will investigate the presence and levels of contaminants such as heavy metals in the water, and analyze the relationship between these contaminants. The findings of this study could provide valuable insights into the impact of water contamination on the environment and human health, and help identify potential sources of pollution in the watershed.
+\newpage
+
 # Rationale and Research Questions
+### Research question:
+Is there a correlation between water quality parameters in the Ellerbe Creek?
 
+### Rationale:
+Understanding the correlation between different water contaminants in the Ellerbe Creek is essential to identify potential sources of pollution and implement effective management strategies to protect the environment and public health.
 
-
+ A statistically significant correlation between Fe and Mn concentrations, attributable to bedrock geology, was identified.
 \newpage
 
 # Dataset Information
 
+Our dataset was retrieved from the official Water Quality Data Web Portal of the City of Durham: http://www.durhamwaterquality.org/ 
+This website contains water quality parameters of different watersheds in the City of Durham.
+We have downloaded data of the Ellerbe Creek watershed, relevant for this project, and it consists of 35 water quality parameters. 
 
+| Sampling | Ambient Sampling |
+|------:|:------|
+| First year of sampling    |2004|
+|Frequency of Collection   |    Irregular  |
+|Number of Parameters  |35|
+|Types of Parameters  |Water quality measurements|
+|Number of Relevant Collection Locations  |7|
+|Original Goal  |Monitor safety and regulation compliance every couple of weeks|
+|Data Collector  |City of Durham|
+
+Find the metadata in /Data/Raw in the .tex file
 
 \newpage
 
-# Exploratory Analysis 
+# Exploration Raw Data
 
+```{r Exploratory Analysis, message = FALSE}
+#Read csv
+water.durham <- read.csv("./Data/Raw/ParamDurhamData_raw.csv",stringsAsFactors = TRUE)
 
+#reveal dimensions, column names
+glimpse(water.durham)
+dim(water.durham)
+colnames(water.durham)
+str(water.durham)
+lapply(water.durham, head)
 
+```
 \newpage
 
+# Data Wrangling Analysis
+After exploring the raw data, we have enough information and we have the need to wrangle the data to easily analyze the trends of our data, and this includes:
+
+* Change date columns to be date objects
+* Drop “NA” values
+* Save the processed dataset in the Processed folder. 
+* Select only the useful columns
+* Adding columns for months and years
+
+This dataset was saved as “water.durham.wrangle” and used for subsequent analyses. 
+\newpage
+```{r}
+# extract time part from date, date column to be date object
+nchar(water.durham$Date.Time)
+water.durham$Date.Time <- as.character(water.durham$Date.Time)
+water.durham$Date.Time <- substr(water.durham$Date.Time,1,nchar(water.durham$Date.Time)-5)%>%
+  mdy()
+
+colnames(water.durham)[colnames(water.durham) == "Date.Time"] <- "Date"
+
+#Select only the useful columns
+water.durham.select <-  select (water.durham, id, Station.Name, Parameter, 
+                                Date, Value,Unit, Sky.Condition)%>%
+  drop_na(Value)
+
+#finding unique values
+unique(water.durham.select$Parameter)
+
+#wrangle
+water.durham.wrangle <- 
+  water.durham.select %>%
+  group_by(Date, Station.Name, Parameter, Value) %>%
+  #summarise(meanAQI = mean(DAILY_AQI_VALUE)) %>%
+  mutate(Month=month(Date),Year=as.factor(year(Date)))
+
+#save the processed dataset
+write.csv(water.durham.wrangle, row.names = FALSE, 
+          file = "./Data/Processed/water.durham.wrangle.csv")
+```
+
+\newpage
+# Exploring processed dataset
+```{r}
+summary(water.durham.wrangle)
+
+```
+
+\newpage
 # Analysis
+## Question 1: Is there a correlation between water quality parameters in the Ellerbe Creek?
+H0 : There is no significant difference between certain parameters.
+HA : There is a significant difference between certain parameters.
+
+The pairs of parameters chosen, based on previous studies and general knowledge, are
+the following:
+
+* Chloride and Fluoride
+* BOD and DO
+* Temperature and Dissolved Oxygen (DO)
+* Biochemical Oxygen Demand (BOD) and Organic Carbon
+* Iron and manganese
+* Iron and dissolved oxygen
+* Nitrate + nitrite and dissolved oxygen
+* Total suspended solids + turbidity
+* Total suspended solid + conductivity
+* Phosphorus and nitrate
+* Total Kjeldahl Nitrogen and Nitrate+Nitrite Concentration
+* Chloride and total suspended solid
+* Chloride and Fluoride
+* Lead and pH
+* pH and ammonia nitrogen
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 
 
 
-## Question 1: <insert specific question here and add additional subsections for additional questions below, if needed>
+
+
+```
+
 
 ## Question 2: 
 
