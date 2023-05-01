@@ -32,6 +32,8 @@ library(reshape2)
 library(lubridate) 
 library(here) 
 library(cowplot) 
+library(here)
+library(corrplot)
 
 #Add pre-set themes
 library(ggthemes)
@@ -49,11 +51,16 @@ getwd() #Checking working directory
 #install.packages("GGally")
 library(GGally)
 
-
-# Set your ggplot theme
-
-# Load your datasets
-
+#spatial analysis
+#install.packages("arcpullr")
+library(arcpullr)
+#install.packages("mapview")
+#install.packages("maps")
+library(mapview)
+library(leaflet)
+library(stringr)
+library(sp)
+library(maps)
 ```
 
 
@@ -122,7 +129,7 @@ This dataset was saved as “water.durham.wrangle” and used for subsequent ana
 \newpage
 ```{r}
 # extract time part from date, date column to be date object
-nchar(water.durham$Date.Time)
+#nchar(water.durham$Date.Time)
 water.durham$Date.Time <- as.character(water.durham$Date.Time)
 water.durham$Date.Time <- substr(water.durham$Date.Time,1,nchar(water.durham$Date.Time)-5)%>%
   mdy()
@@ -157,10 +164,10 @@ summary(water.durham.wrangle)
 ```
 
 \newpage
-# Analysis
+
 ## Question 1: Is there a correlation between water quality parameters in the Ellerbe Creek?
-H0 : There is no significant difference between certain parameters.
-HA : There is a significant difference between certain parameters.
+H0 : There is no significant correlation between certain parameters.
+HA : There is a significant correlation between certain parameters.
 
 The pairs of parameters chosen, based on previous studies and general knowledge, are
 the following:
@@ -181,26 +188,458 @@ the following:
 * Lead and pH
 * pH and ammonia nitrogen
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r custom plot, echo=FALSE, message=FALSE, warning=FALSE}
 
-
-
+# Creating a custom plot theme to explore pairs of variables
+my_theme <- theme_gray() + 
+  theme(
+    line = element_line(
+      color='black',
+      linewidth =1
+    ),
+    plot.background =   element_rect(
+      color='black',
+      fill='white'
+    ),
+    axis.text = element_text(size = 11),
+    plot.title =        element_text(
+      size=16,
+      family="Arial",
+      face = "bold",
+      color='black'
+    ),
+    axis.title = element_text(size = 14, face = "bold"),
+    legend.background = element_rect(
+      color='black',
+      fill = 'white'
+    ),
+    legend.title = element_text(size=13,  
+                                family="Arial",
+      color='black'
+    )
+  )
 
 
 ```
 
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#exploring individual trends
+#Alkalinity
+water.alkalinity.durham <- water.durham.wrangle %>%
+  filter(Parameter == "Alkalinity")%>%
+    ggplot(
+    mapping = aes(
+      x=Date,
+      y=Value,
+      color=Station.Name)
+    ) + 
+  geom_point()+
+  geom_line()+
+  # Add a line of best fit and color it black
+  #geom_smooth(method = "lm", se = FALSE, color = "black") +
+  labs(title="Alkalinity in Water", x="Year", y="Alkalinity (mgCaCO3/L)", color="Station Name")+
+  # Adjust the x and y limits to hide extreme values
+  #xlim(0, 125) +
+  #ylim(0, 50)+
+  scale_x_date(date_breaks = "years", date_labels = "%Y")+
+  my_theme
+print(water.alkalinity.durham)
 
-## Question 2: 
+#nitrogen
+water.nitrogen.durham <- water.durham.wrangle %>%
+  filter(Parameter == "Nitrate + Nitrite as N")%>%
+    ggplot(
+    mapping = aes(
+      x=Date,
+      y=Value,
+      color=Station.Name)
+    ) + 
+  geom_point()+
+  geom_line()+
+  # Add a line of best fit and color it black
+  #geom_smooth(method = "lm", se = FALSE, color = "black") +
+  labs(title="Nitrogen in Water", x="Year", y="Nitrogen (mg/L)", color="Station Name")+
+  # Adjust the x and y limits to hide extreme values
+  #xlim(0, 125) +
+  #ylim(0, 50)+
+  #scale_x_date(date_breaks = "years", date_labels = "%Y")+
+  geom_hline(yintercept = 10, color = "red",  size = 1)+
+  my_theme
+
+print(water.nitrogen.durham)
+
+#fluoride
+water.fluoride.durham <- water.durham.wrangle %>%
+  filter(Parameter == "Fluoride")%>%
+    ggplot(
+    mapping = aes(
+      x=Date,
+      y=Value,
+      color=Station.Name)
+    ) + 
+  geom_point()+
+  geom_line(color = "blue")+
+  # Add a line of best fit and color it black
+  #geom_smooth(method = "lm", se = FALSE, color = "black") +
+  # Adjust the x and y limits to hide extreme values
+  #xlim(0, 125) +
+  #ylim(0, 50)+
+  #scale_x_date(date_breaks = "years", date_labels = "%Y")+
+  labs(title="Fluoride", x="Year", y="Fluoride (mg/L)", color="Station Name")+
+  my_theme+
+    geom_hline(aes(yintercept= 4, linetype = ""), colour= 'red', size = 1) +
+    scale_linetype_manual(name = "MCL", values = c(1), 
+                      guide = guide_legend(override.aes = list(color = c("red"))))
+
+print(water.fluoride.durham)
+```
 
 
+```{r}
+#creating a function for individual trends
+Plot.get <- function(parameter, MCL, plottitle) {
+  plot <- water.durham.wrangle %>%
+  filter(Parameter == parameter)%>%
+    ggplot(
+    mapping = aes(
+      x=Date,
+      y=Value,
+      color=Station.Name)
+    ) + 
+  geom_point()+
+  geom_line(color = "blue")+
+  # Add a line of best fit and color it black
+  #geom_smooth(method = "lm", se = FALSE, color = "black") +
+  labs(title=plottitle, x="Year", y=paste0(plottitle," ","(", pull(water.durham.wrangle[water.durham.wrangle$Parameter == "Iron" , "Unit"])[2],")"), 
+       color="Station Name")+
+  # Adjust the x and y limits to hide extreme values
+  #xlim(0, 125) +
+  #ylim(0, 50)+
+  #scale_x_date(date_breaks = "years", date_labels = "%Y")+
+  my_theme+
+    geom_hline(aes(yintercept= MCL, linetype = ""), colour= 'red', size = 1) +
+    scale_linetype_manual(name = "MCL", values = c(1), 
+                      guide = guide_legend(override.aes = list(color = c("red"))))
+  #Sys.sleep(1) # Scraping etiquette
+  return(plot)
+}
+
+water.iron.durham <- Plot.get("Iron", 300,"Iron" )
+print(water.iron.durham)
+water.chromium.durham <- Plot.get("Chromium", 100,"Chromium" )
+print(water.chromium.durham)
+water.cad.durham <- Plot.get("Cadmium", 30,"Cadmium" )
+```
+
+
+```{r}
+#now, let's visualize possible correlations between 2 parameters
+#test, this one is working with values
+water.durham.wrangle %>%
+    filter(Parameter == "Temperature" | Parameter == "Manganese" ) %>%
+    ggplot(
+      mapping = aes(
+        x=Date,
+        y=Value,
+        color=Parameter)
+    ) + 
+    geom_point()+
+    geom_line()+
+    facet_wrap(~Station.Name, scales = "free_y") +
+  scale_color_manual(values = c("red", "black")) +
+  labs(title = paste0("Relationship between - ", "Temperature", " and ", "Manganese"), x = "Year", y=paste0("Value"," ","(", pull(water.durham.wrangle[water.durham.wrangle$Parameter == "Iron", "Unit"])[2],")")) +
+    my_theme+
+  geom_smooth(method = 'lm')
+
+```
+
+```{r}
+#converting to a function
+Plot2.get <- function(parameter1, parameter2) {
+  plot <- water.durham.wrangle %>%
+    filter(Parameter == parameter1 | Parameter == parameter2 ) %>%
+    ggplot(
+      mapping = aes(
+        x=Date,
+        y=Value,
+        color=Parameter)) + 
+    geom_point()+
+    geom_line()+
+    facet_wrap(~Station.Name, scales = "free_y") +
+    scale_color_manual(values = c("red", "blue")) +
+    labs(title = paste0("Relationship between ", parameter1, " and ", parameter2), x = "Year", y=paste0("Value"," ","(", pull(water.durham.wrangle[water.durham.wrangle$Parameter == "Iron", "Unit"])[2],")"))
+    my_theme+
+    Sys.sleep(1) # Scraping etiquette
+    return(plot)
+}
+```
+
+```{r}
+#relationship Chloride and Fluoride
+water.cl.f <- Plot2.get("Chloride", "Fluoride")
+print(water.cl.f)
+
+#relationship BOD and DO
+water.bod.do <- Plot2.get("Biochemical Oxygen Demand", "Dissolved Oxygen")
+print(water.bod.do)
+
+#relationship Temperature and Dissolved Oxygen (DO)
+water.temp.do <- Plot2.get("Temperature", "Dissolved Oxygen")
+print(water.temp.do)
+
+#relationship Biochemical Oxygen Demand (BOD) and Organic Carbon
+water.bod.oc <- Plot2.get("Biochemical Oxygen Demand", "Organic Carbon")
+print(water.bod.oc)
+
+#relationship iron and manganese
+water.iron.mn <- Plot2.get("Iron", "Manganese")
+print(water.iron.mn)
+
+#relationship iron and dissolved oxygen
+water.iron.do <- Plot2.get("Iron", "Dissolved Oxygen")
+print(water.iron.do)
+
+#relationship nitrate + nitrite and dissolved oxygen
+water.nit.do <- Plot2.get("Nitrate + Nitrite as N", "Dissolved Oxygen")
+print(water.nit.do)
+
+#relationship total suspended solids + turbidity
+water.tss.turb <- Plot2.get("Total Suspended Solids", "Turbidity")
+print(water.tss.turb)
+
+#relationship total suspended solid + conductivity
+water.tss.cond <- Plot2.get("Total Suspended Solids", "Conductivity")
+print(water.tss.cond)
+
+#relationship phosphorus and nitrate
+water.p.nit <- Plot2.get("Total Phosphorus", "Nitrate + Nitrite as N")
+print(water.p.nit)
+
+#relationship Total Kjeldahl Nitrogen and Nitrate+Nitrite Concentration
+water.totnit.nit <- Plot2.get("Total Kjeldahl Nitrogen", "Nitrate + Nitrite as N")
+print(water.totnit.nit)
+
+#relationship Chloride and total suspended solid
+water.cl.tss <- Plot2.get("Chloride", "Total Suspended Solids")
+print(water.cl.tss)
+
+#relationship lead and pH
+water.pb.ph <- Plot2.get("Lead", "pH")
+print(water.pb.ph)
+
+#relationship pH and ammonia nitrogen
+water.ph.n <- Plot2.get("pH", "Ammonia Nitrogen")
+print(water.ph.n)
+```
+
+# Analysis
+```{r}
+
+#long to wide format
+wide_data <- dcast(water.durham.wrangle, Year + Month + Station.Name ~ Parameter, fun.aggregate = mean,
+                   value.var= "Value")
+
+water_wide_plot <- 
+  ggplot(wide_data, aes(x=Chloride, y=Fluoride, color = Station.Name))+
+  geom_point()+
+  geom_smooth(method="lm", se = FALSE, color = "blue") +
+  #xlim(0, 125) +
+  #ylim(0, 35)+
+  labs(title= "Chloride vs Fluoride", x= "Chloride (mg/L)", y= "Fluoride (mg/L)", color="Station.Name")+
+   theme(legend.text = element_text(size = 7), legend.position = "top", 
+         legend.justification = "right", legend.key.width = unit(10, "pt"),
+         legend.key.height = unit(1, "cm"))
+
+print(water_wide_plot)
+```
+
+```{r}
+#changing name of the column for further analysis
+colnames(wide_data) <-  make.names(names(wide_data))
+
+#regression analysis
+cl.f.regression <- lm(data = wide_data, Chloride ~ Fluoride)
+summary(cl.f.regression)
+
+bod.do.regression <- lm(data = wide_data, Biochemical.Oxygen.Demand ~ Dissolved.Oxygen)
+summary(bod.do.regression)
+
+temp.do.regression <- lm(data = wide_data, Temperature  ~ Dissolved.Oxygen)
+summary(temp.do.regression)
+
+bod.oc.regression <- lm(data = wide_data, Biochemical.Oxygen.Demand ~ Organic.Carbon)
+summary(bod.oc.regression)
+
+fe.mn.regression <- lm(data = wide_data, Iron ~ Dissolved.Oxygen)
+summary(fe.mn.regression)
+
+fe.f.regression <- lm(data = wide_data, Iron ~ Fluoride)
+summary(fe.f.regression)
+
+n.do.regression <- lm(data = wide_data, Nitrate...Nitrite.as.N ~ Dissolved.Oxygen)
+summary(n.do.regression)
+
+tss.turbidity.regression <- lm(data = wide_data, Total.Suspended.Solids ~ Turbidity)
+summary(tss.turbidity.regression)
+
+tss.conductivity.regression <- lm(data = wide_data, Total.Suspended.Solids ~ Conductivity)
+summary(tss.conductivity.regression)
+
+tp.n.regression <- lm(data = wide_data, Total.Phosphorus ~ Nitrate...Nitrite.as.N)
+summary(tp.n.regression)
+
+tkn.n.regression <- lm(data = wide_data, Total.Kjeldahl.Nitrogen ~ Nitrate...Nitrite.as.N)
+summary(tkn.n.regression)
+
+cl.tss.regression <- lm(data = wide_data, Chloride ~ Total.Suspended.Solids)
+summary(cl.tss.regression)
+
+pb.ph.regression <- lm(data = wide_data, Lead ~ pH)
+summary(pb.ph.regression)
+
+ph.ammonia.regression <- lm(data = wide_data, pH ~ Ammonia.Nitrogen)
+summary(ph.ammonia.regression)
+
+```
+
+# Linear Regression Analysis
+
+```{r}
+df.residual(summary(cl.f.regression))
+
+r_squared <- paste("The linear regression analysis indicates that changes in " ,"parameter1 ", "explain ", round(100*summary(cl.f.regression)$r.squared, 2), 
+"%", " of the variability in ", "parameter2. ", "This finding is based on:", " degrees of freedom = ", summary(cl.f.regression)$df[1], ", ", 
+summary(cl.f.regression)$df[2], "; degrees of freedom for the residuals = ", summary(cl.f.regression)$df.residual,
+"; standard error = ", round(summary(cl.f.regression)$sigma, 2), "; p-value = ", formatC(summary(cl.f.regression)$coefficients[2, 4], digits = 2, format = "f"), sep = "")
+
+print(r_squared)
+
+```
+
+```{r}
+#creating a function based on previous test
+
+# Define a function to format the regression results
+format_regression_results <- function(parameter1, parameter2, regression) {
+  
+  # Extract the regression results
+  summary <- summary(regression)
+  r_squared <- round(100 * summary$r.squared, 2)
+  df1 <- summary$df[1]
+  df2 <- summary$df[2]
+  se <- round(summary$sigma, 2)
+  p_value <- formatC(summary$coefficients[2, 4], digits = 2, format = "f")
+  
+  # Build the formatted string
+  result <- paste0(
+    "The linear regression analysis indicates that changes in ", parameter1, 
+    " explain ", r_squared, "% of the variability in ", parameter2, 
+    ". This finding is based on ", df1, " degrees of freedom for the numerator, ", 
+    df2, " degrees of freedom for the denominator, a standard error of ", se, 
+    ", and a p-value of ", p_value, "."
+  )
+  
+  # Add the significance information
+  if (summary$coefficients[2, 4] < 0.05) {
+    result <- paste(result, " (statistically significant)", sep = "")
+  } else {
+    result <- paste(result, " (not statistically significant)", sep = "")
+  }
+  
+  return(result)
+}
+
+# linear regression analysis findings
+fit <- lm( Chloride ~ Fluoride, data = wide_data)
+result <- format_regression_results("Chloride", "Fluoride", cl.f.regression)
+print(result)
+
+
+fit <- lm( Biochemical.Oxygen.Demand ~ Dissolved.Oxygen, data = wide_data)
+result <- format_regression_results("Biochemical.Oxygen.Demand", "Dissolved.Oxygen", bod.do.regression)
+print(result)
+
+
+fit <- lm( Temperature ~ Dissolved.Oxygen, data = wide_data)
+result <- format_regression_results("Temperature", "Dissolved.Oxygen", temp.do.regression)
+print(result)
+
+fit <- lm( Biochemical.Oxygen.Demand ~ Organic.Carbon, data = wide_data)
+result <- format_regression_results("Biochemical.Oxygen.Demand", "Organic.Carbon", bod.oc.regression)
+print(result)
+
+fit <- lm( Iron ~ Dissolved.Oxygen, data = wide_data)
+result <- format_regression_results("Iron", "Dissolved.Oxygen", fe.mn.regression)
+print(result)
+
+fit <- lm( Iron ~ Fluoride, data = wide_data)
+result <- format_regression_results("Iron", "Fluoride", fe.f.regression)
+print(result)
+
+fit <- lm( Nitrate...Nitrite.as.N ~ Dissolved.Oxygen, data = wide_data)
+result <- format_regression_results("Nitrate...Nitrite.as.N", "Dissolved.Oxygen", n.do.regression)
+print(result)
+
+fit <- lm( Total.Suspended.Solids ~ Turbidity, data = wide_data)
+result <- format_regression_results("Total.Suspended.Solids", "Turbidity", tss.turbidity.regression)
+print(result)
+
+fit <- lm( Total.Suspended.Solids ~ Conductivity, data = wide_data)
+result <- format_regression_results("Total.Suspended.Solids", "Conductivity", tss.conductivity.regression)
+print(result)
+
+fit <- lm( Total.Phosphorus ~ Nitrate...Nitrite.as.N, data = wide_data)
+result <- format_regression_results("Total.Phosphorus", "Nitrate...Nitrite.as.N", tp.n.regression)
+print(result)
+
+fit <- lm( Total.Kjeldahl.Nitrogen ~ Nitrate...Nitrite.as.N, data = wide_data)
+result <- format_regression_results("Total.Kjeldahl.Nitrogen", "Nitrate...Nitrite.as.N", tkn.n.regression)
+print(result)
+
+fit <- lm( Chloride ~ Total.Suspended.Solids, data = wide_data)
+result <- format_regression_results("Chloride", "Total.Suspended.Solids", cl.tss.regression)
+print(result)
+
+fit <- lm( Lead ~ pH, data = wide_data)
+result <- format_regression_results("Lead", "pH", pb.ph.regression)
+print(result)
+
+fit <- lm( Ammonia.Nitrogen ~ pH, data = wide_data)
+result <- format_regression_results("Ammonia.Nitrogen", "pH", ph.ammonia.regression)
+print(result)
+```
+
+
+# Spatial Analysis
+
+```{r}
+#reading stations dataset
+stationData = read.csv('./Data/Raw/durham_station.csv')
+stationData1 = stationData[stationData$Name %in% c("EL5.5GC","EL1.9EC","EL5.6EC","EL8.1GC","EL8.5SEC","EL7.1SEC","EL8.6SECUT","EL7.1EC"),]
+
+#getting spatial layer
+huc14 <- get_spatial_layer(url = "https://services1.arcgis.com/XBhYkoXKJCRHbe7M/arcgis/rest/services/Ellerbe_Creek_CatchmentsWMIP_view/FeatureServer/0") 
+huc15 <- mapview(huc14)
+
+#using leaflet to draw the map
+leaflet() %>%
+  addTiles('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}') %>%
+  addPolygons(data = huc14, weight = 1, opacity = 1, color = "black", fillOpacity = 0)%>% addProviderTiles(providers$Esri.NatGeoWorldMap)%>%addCircleMarkers(lng= stationData1$Longitude, lat = stationData1$Latitude,layerId = stationData1$Name,color = "blue")
+```
 
 
 \newpage
 
 # Summary and Conclusions
-
+* For most of the analyses, the percentage of variability explained by the independent variable was found to be less than 5%. 
+* However, for some analyses such as the relationship between Temperature and Dissolved Oxygen or Total Suspended Solids and Turbidity, the percentage of variability explained was found to be higher, at 57.81% and 68.72%, respectively. In 7 out of 14 cases, the p-value was found to be statistically significant, indicating a relationship between the two variables, while in others it was not. 
 
 \newpage
 
 # References
-<add references here if relevant, otherwise delete this section> 
+* City of durham, water quality data—Web portal. (n.d.). Retrieved 1 May 2023, from http://www.durhamwaterquality.org/
+* Chigor, V. N., Umoh, V. J., Okuofu, C. A., Ameh, J. B., Igbinosa, E. O., & Okoh, A. I. (2012). Water quality assessment: Surface water sources used for drinking and irrigation in Zaria, Nigeria are a public health hazard. Environmental Monitoring and Assessment, 184(5), 3389–3400. https://doi.org/10.1007/s10661-011-2396-9
+* O’Donnell, D. (2021, September 20). Three main types of water quality parameters explained. Sensorex. https://sensorex.com/three-main-types-of-water-quality-parameters-explained/
+* Zaw, M., & Chiswell, B. (1999). Iron and manganese dynamics in lake water. Water Research, 33(8), 1900–1910. https://doi.org/10.1016/S0043-1354(98)00360-1
+* Johnson, C. D., Nandi, A., Joyner, T. A., & Luffman, I. (2018). Iron and manganese in groundwater: Using kriging and gis to locate high concentrations in buncombe county, north carolina. Groundwater, 56(1), 87–95. https://doi.org/10.1111/gwat.12560
+
