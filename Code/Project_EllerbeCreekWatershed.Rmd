@@ -1,9 +1,16 @@
 ---
+output:
+  html_document: default
+  pdf_document: 
+  pandoc_args: ["--lua-filter=remove-code-blocks.lua"]
+---
+---
 fontsize: 12pt
 author: "Joanna Huertas"
 date: "Spring 2023"
+always_allow_html: true
 output:
-  pdf_document: default
+  html_document: default
   fontsize: default
 subtitle: "https://github.com/joa-kenit/EDAProject2023"
 title: Evaluating the correlation between various water contaminants throughout the
@@ -22,8 +29,10 @@ editor_options:
 \newpage
 
 ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
 # Set your working directory
 setwd("C:/Users/joann/Documents/EDAProject2023")
+
 # Load your packages
 
 library(tidyverse)
@@ -101,19 +110,19 @@ Find the metadata in /Data/Raw in the .tex file
 \newpage
 
 # Exploration Raw Data
-
-```{r Exploratory Analysis, message = FALSE}
+Reading dataset:
+```{r Exploratory Analysis, echo=FALSE, message=FALSE}
 #Read csv
 water.durham <- read.csv("./Data/Raw/ParamDurhamData_raw.csv",stringsAsFactors = TRUE)
-
+```
+Exploring dimensions and each column of the dataset:
+```{r Exploratory Analysis I, echo=FALSE, message=FALSE}
 #reveal dimensions, column names
-glimpse(water.durham)
-dim(water.durham)
 colnames(water.durham)
 str(water.durham)
 lapply(water.durham, head)
-
 ```
+
 \newpage
 
 # Data Wrangling Analysis
@@ -125,9 +134,12 @@ After exploring the raw data, we have enough information and we have the need to
 * Select only the useful columns
 * Adding columns for months and years
 
+The relevant columns were selected before getting the final dataset.
 This dataset was saved as “water.durham.wrangle” and used for subsequent analyses. 
+
+These are the set of Parameters we have:
 \newpage
-```{r}
+```{r, echo=FALSE}
 # extract time part from date, date column to be date object
 #nchar(water.durham$Date.Time)
 water.durham$Date.Time <- as.character(water.durham$Date.Time)
@@ -158,18 +170,19 @@ write.csv(water.durham.wrangle, row.names = FALSE,
 
 \newpage
 # Exploring processed dataset
-```{r}
+This is the summary of our dataset “water.durham.wrangle”:
+```{r, echo=FALSE}
 summary(water.durham.wrangle)
 
 ```
 
 \newpage
 
-## Question 1: Is there a correlation between water quality parameters in the Ellerbe Creek?
+## Question: Is there a correlation between water quality parameters in the Ellerbe Creek?
 H0 : There is no significant correlation between certain parameters.
 HA : There is a significant correlation between certain parameters.
 
-The pairs of parameters chosen, based on previous studies and general knowledge, are
+The pairs of parameters chosen, based on previous studies (see references) and general knowledge, are
 the following:
 
 * Chloride and Fluoride
@@ -187,6 +200,10 @@ the following:
 * Chloride and Fluoride
 * Lead and pH
 * pH and ammonia nitrogen
+
+After creating a custom plot theme, we got some plots of individual parameters, a function was created to do so.
+
+## Exploring individual trends
 
 ```{r custom plot, echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -295,7 +312,7 @@ print(water.fluoride.durham)
 ```
 
 
-```{r}
+```{r, echo=FALSE}
 #creating a function for individual trends
 Plot.get <- function(parameter, MCL, plottitle) {
   plot <- water.durham.wrangle %>%
@@ -331,8 +348,9 @@ print(water.chromium.durham)
 water.cad.durham <- Plot.get("Cadmium", 30,"Cadmium" )
 ```
 
+## Visualization of possible correlations between 2 parameters for each available station
 
-```{r}
+```{r, echo=FALSE}
 #now, let's visualize possible correlations between 2 parameters
 #test, this one is working with values
 water.durham.wrangle %>%
@@ -353,7 +371,7 @@ water.durham.wrangle %>%
 
 ```
 
-```{r}
+```{r, echo=FALSE}
 #converting to a function
 Plot2.get <- function(parameter1, parameter2) {
   plot <- water.durham.wrangle %>%
@@ -367,28 +385,67 @@ Plot2.get <- function(parameter1, parameter2) {
     geom_line()+
     facet_wrap(~Station.Name, scales = "free_y") +
     scale_color_manual(values = c("red", "blue")) +
-    labs(title = paste0("Relationship between ", parameter1, " and ", parameter2), x = "Year", y=paste0("Value"," ","(", pull(water.durham.wrangle[water.durham.wrangle$Parameter == "Iron", "Unit"])[2],")"))
+    labs(title = paste0("Relationship between ", parameter1, " and ", parameter2), x = "Year", y=paste0("Value"," ","(", pull(water.durham.wrangle[water.durham.wrangle$Parameter == "Iron", "Unit"])[2],")"))+
+    my_theme+
+    Sys.sleep(1) # Scraping etiquette
+    return(plot)
+}
+
+
+#creating a function for a different unit system (mg/L, among others)
+Plot.mg.l.get <- function(parameter1, parameter2) {
+  plot <- water.durham.wrangle %>%
+    filter(Parameter == parameter1 | Parameter == parameter2 ) %>%
+    ggplot(
+      mapping = aes(
+        x=Date,
+        y=Value,
+        color=Parameter)) + 
+    geom_point()+
+    geom_line()+
+    facet_wrap(~Station.Name, scales = "free_y") +
+    scale_color_manual(values = c("red", "blue")) +
+    labs(title = paste0("Relationship between ", parameter1, " and ", parameter2), x = "Year", y=paste0("Value"," ","(", pull(water.durham.wrangle[water.durham.wrangle$Parameter == "Chloride", "Unit"])[2],")"))+
+    my_theme+
+    Sys.sleep(1) # Scraping etiquette
+    return(plot)
+}
+
+#creating a function for a different unit system (mg/L and C°)
+Plot.mg.l.c.get <- function(parameter1, parameter2) {
+  plot <- water.durham.wrangle %>%
+    filter(Parameter == parameter1 | Parameter == parameter2 ) %>%
+    ggplot(
+      mapping = aes(
+        x=Date,
+        y=Value,
+        color=Parameter)) + 
+    geom_point()+
+    geom_line()+
+    facet_wrap(~Station.Name, scales = "free_y") +
+    scale_color_manual(values = c("red", "blue")) +
+    labs(title = paste0("Relationship between ", parameter1, " and ", parameter2), x = "Year", y=paste0("Value (C°)"," ","(", pull(water.durham.wrangle[water.durham.wrangle$Parameter == "Chloride", "Unit"])[2],")"))+
     my_theme+
     Sys.sleep(1) # Scraping etiquette
     return(plot)
 }
 ```
-
-```{r}
+\newpage
+```{r, echo=FALSE}
 #relationship Chloride and Fluoride
-water.cl.f <- Plot2.get("Chloride", "Fluoride")
+water.cl.f <- Plot.mg.l.get("Chloride", "Fluoride")
 print(water.cl.f)
 
 #relationship BOD and DO
-water.bod.do <- Plot2.get("Biochemical Oxygen Demand", "Dissolved Oxygen")
+water.bod.do <- Plot.mg.l.get("Biochemical Oxygen Demand", "Dissolved Oxygen")
 print(water.bod.do)
 
 #relationship Temperature and Dissolved Oxygen (DO)
-water.temp.do <- Plot2.get("Temperature", "Dissolved Oxygen")
+water.temp.do <- Plot.mg.l.c.get("Temperature", "Dissolved Oxygen")
 print(water.temp.do)
 
 #relationship Biochemical Oxygen Demand (BOD) and Organic Carbon
-water.bod.oc <- Plot2.get("Biochemical Oxygen Demand", "Organic Carbon")
+water.bod.oc <- Plot.mg.l.get("Biochemical Oxygen Demand", "Organic Carbon")
 print(water.bod.oc)
 
 #relationship iron and manganese
@@ -400,27 +457,27 @@ water.iron.do <- Plot2.get("Iron", "Dissolved Oxygen")
 print(water.iron.do)
 
 #relationship nitrate + nitrite and dissolved oxygen
-water.nit.do <- Plot2.get("Nitrate + Nitrite as N", "Dissolved Oxygen")
+water.nit.do <- Plot.mg.l.get("Nitrate + Nitrite as N", "Dissolved Oxygen")
 print(water.nit.do)
 
 #relationship total suspended solids + turbidity
-water.tss.turb <- Plot2.get("Total Suspended Solids", "Turbidity")
+water.tss.turb <- Plot.mg.l.get("Total Suspended Solids", "Turbidity")
 print(water.tss.turb)
 
 #relationship total suspended solid + conductivity
-water.tss.cond <- Plot2.get("Total Suspended Solids", "Conductivity")
+water.tss.cond <- Plot.mg.l.get("Total Suspended Solids", "Conductivity")
 print(water.tss.cond)
 
 #relationship phosphorus and nitrate
-water.p.nit <- Plot2.get("Total Phosphorus", "Nitrate + Nitrite as N")
+water.p.nit <- Plot.mg.l.get("Total Phosphorus", "Nitrate + Nitrite as N")
 print(water.p.nit)
 
 #relationship Total Kjeldahl Nitrogen and Nitrate+Nitrite Concentration
-water.totnit.nit <- Plot2.get("Total Kjeldahl Nitrogen", "Nitrate + Nitrite as N")
+water.totnit.nit <- Plot.mg.l.get("Total Kjeldahl Nitrogen", "Nitrate + Nitrite as N")
 print(water.totnit.nit)
 
 #relationship Chloride and total suspended solid
-water.cl.tss <- Plot2.get("Chloride", "Total Suspended Solids")
+water.cl.tss <- Plot.mg.l.get("Chloride", "Total Suspended Solids")
 print(water.cl.tss)
 
 #relationship lead and pH
@@ -431,9 +488,13 @@ print(water.pb.ph)
 water.ph.n <- Plot2.get("pH", "Ammonia Nitrogen")
 print(water.ph.n)
 ```
+\newpage
 
-# Analysis
-```{r}
+## Visualization
+Visualizing the relationship among two variables with a scatter plot of chloride by
+fluoride.
+
+```{r echo=FALSE, warning=FALSE}
 
 #long to wide format
 wide_data <- dcast(water.durham.wrangle, Year + Month + Station.Name ~ Parameter, fun.aggregate = mean,
@@ -452,8 +513,10 @@ water_wide_plot <-
 
 print(water_wide_plot)
 ```
-
-```{r}
+In this case, the scatterplot suggests that there could be a negative relationship between chloride and fluoride.
+\newpage
+## Linear Regression Analysis
+```{r, echo=FALSE, warning=FALSE}
 #changing name of the column for further analysis
 colnames(wide_data) <-  make.names(names(wide_data))
 
@@ -501,10 +564,11 @@ ph.ammonia.regression <- lm(data = wide_data, pH ~ Ammonia.Nitrogen)
 summary(ph.ammonia.regression)
 
 ```
+\newpage
 
-# Linear Regression Analysis
+## Interpretation of results
 
-```{r}
+```{r, echo=FALSE}
 df.residual(summary(cl.f.regression))
 
 r_squared <- paste("The linear regression analysis indicates that changes in " ,"parameter1 ", "explain ", round(100*summary(cl.f.regression)$r.squared, 2), 
@@ -512,11 +576,11 @@ r_squared <- paste("The linear regression analysis indicates that changes in " ,
 summary(cl.f.regression)$df[2], "; degrees of freedom for the residuals = ", summary(cl.f.regression)$df.residual,
 "; standard error = ", round(summary(cl.f.regression)$sigma, 2), "; p-value = ", formatC(summary(cl.f.regression)$coefficients[2, 4], digits = 2, format = "f"), sep = "")
 
-print(r_squared)
+#print(r_squared)
 
 ```
-
-```{r}
+\newpage
+```{r, echo=FALSE}
 #creating a function based on previous test
 
 # Define a function to format the regression results
@@ -558,7 +622,6 @@ print(result)
 fit <- lm( Biochemical.Oxygen.Demand ~ Dissolved.Oxygen, data = wide_data)
 result <- format_regression_results("Biochemical.Oxygen.Demand", "Dissolved.Oxygen", bod.do.regression)
 print(result)
-
 
 fit <- lm( Temperature ~ Dissolved.Oxygen, data = wide_data)
 result <- format_regression_results("Temperature", "Dissolved.Oxygen", temp.do.regression)
@@ -609,10 +672,10 @@ result <- format_regression_results("Ammonia.Nitrogen", "pH", ph.ammonia.regress
 print(result)
 ```
 
-
+\newpage
 # Spatial Analysis
-
-```{r}
+This is the location of the main stations along the Ellerbe Creek Watershed:
+```{r, echo=FALSE, warning=FALSE}
 #reading stations dataset
 stationData = read.csv('./Data/Raw/durham_station.csv')
 stationData1 = stationData[stationData$Name %in% c("EL5.5GC","EL1.9EC","EL5.6EC","EL8.1GC","EL8.5SEC","EL7.1SEC","EL8.6SECUT","EL7.1EC"),]
@@ -624,7 +687,7 @@ huc15 <- mapview(huc14)
 #using leaflet to draw the map
 leaflet() %>%
   addTiles('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}') %>%
-  addPolygons(data = huc14, weight = 1, opacity = 1, color = "black", fillOpacity = 0)%>% addProviderTiles(providers$Esri.NatGeoWorldMap)%>%addCircleMarkers(lng= stationData1$Longitude, lat = stationData1$Latitude,layerId = stationData1$Name,color = "blue")
+  addPolygons(data = huc14, weight = 1, opacity = 1, color = "black", fillOpacity = 0)%>% addProviderTiles(providers$Esri.NatGeoWorldMap)%>%addMarkers(data = stationData1, lng = ~Longitude, lat = ~Latitude, label = ~Name)
 ```
 
 
@@ -634,10 +697,11 @@ leaflet() %>%
 * For most of the analyses, the percentage of variability explained by the independent variable was found to be less than 5%. 
 * However, for some analyses such as the relationship between Temperature and Dissolved Oxygen or Total Suspended Solids and Turbidity, the percentage of variability explained was found to be higher, at 57.81% and 68.72%, respectively. In 7 out of 14 cases, the p-value was found to be statistically significant, indicating a relationship between the two variables, while in others it was not. 
 
+
 \newpage
 
 # References
-* City of durham, water quality data—Web portal. (n.d.). Retrieved 1 May 2023, from http://www.durhamwaterquality.org/
+* City of Durham, water quality data—Web portal. (n.d.). Retrieved 1 May 2023, from http://www.durhamwaterquality.org/
 * Chigor, V. N., Umoh, V. J., Okuofu, C. A., Ameh, J. B., Igbinosa, E. O., & Okoh, A. I. (2012). Water quality assessment: Surface water sources used for drinking and irrigation in Zaria, Nigeria are a public health hazard. Environmental Monitoring and Assessment, 184(5), 3389–3400. https://doi.org/10.1007/s10661-011-2396-9
 * O’Donnell, D. (2021, September 20). Three main types of water quality parameters explained. Sensorex. https://sensorex.com/three-main-types-of-water-quality-parameters-explained/
 * Zaw, M., & Chiswell, B. (1999). Iron and manganese dynamics in lake water. Water Research, 33(8), 1900–1910. https://doi.org/10.1016/S0043-1354(98)00360-1

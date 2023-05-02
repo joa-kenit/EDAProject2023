@@ -1,7 +1,7 @@
 ---
-title: "PullStreamCat"
-author: "Annabelle White, Joanna Huertas"
-date: "2023-04-10"
+title: "StreamCat"
+author: "Joanna Huertas"
+date: "2023-04-15"
 output: html_document
 geometry: margin=2.54cm
 editor_options: 
@@ -44,28 +44,11 @@ StreamCat.get <- function(name, state) {
   return(df)
 }
 
-#data wrangling: difference between precip 2008 - 2009
-
-#pipe function add column called YEAR}
-#rename the columns TMEAN 09CAT & TMEAN 08CAT- TMEAN CAT, Combine them
-#variance between states
-#Mean Elevation vs PctIce, evergreen forest
-#elev vs temp
-#pop10
 
 ```
 ## Pull Raw Data
 ```{r pull raw data, echo=FALSE, message=FALSE}
 NC_temp08 <- StreamCat.get("precip8110", "NC")
-NC_temp09 <- StreamCat.get("temp09", "NC")
-SC_temp08 <- StreamCat.get("temp08", "SC")
-SC_temp09 <- StreamCat.get("temp09", "SC")
-
-NC_precip08 <- StreamCat.get("precip08", "NC")
-NC_precip09 <- StreamCat.get("precip09", "NC")
-SC_precip08 <- StreamCat.get("precip08", "SC")
-SC_precip09 <- StreamCat.get("precip09", "SC")
-
 vignette("Introduction", "StreamCatTools")
 
 sc_get_data(state='NC')

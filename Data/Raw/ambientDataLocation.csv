@@ -1,0 +1,10 @@
+"","Name","Latitude","Longitude","Elevation","County.City","Location","Sampling.Frequency","Stream.Name","Stream.Order","River.Mile","River.Basin","Watershed","Drainage.Area","Geology","HUC","State.Route","US.Station","DS.Station","DWQ.Ambient","USGS.Gage","DENR.Index.No"
+"5","EL1.9EC",36.0597,-78.83268,NA,"","Ellerbe Crk at Glenn Rd.","","Ellerbe Creek","4th order",1.9,"Neuse","Ellerbe Creek",21.9,"TRc (downstream of Jd)",3020201,"SR1636","","EL0.9EC","J1330000",2086849,NA
+"7","EL5.5GC",36.0247,-78.8607,NA,"","Goose Crk at Camden Ave","","Goose Creek","3rd order",5.5,"Neuse","Ellerbe Creek",5,"TRc",3020201,"","","EL5.0EC","",NA,NA
+"8","EL5.6EC",36.02212,-78.8704,NA,"","Ellerbe Crk at Midland Terr between Club Blvd & C","","Ellerbe Creek","3rd order",5.6,"Neuse","Ellerbe Creek",10.7,"TRc",3020201,"SR1827","","EL5.0EC","",NA,NA
+"9","EL7.1EC",36.02,-78.8951,NA,"City","Ellerbe Crk at W Club Blvd and Acadia St","","Ellerbe Creek","",7.1,"Neuse","Ellerbe Creek",NA,"",NA,"","","","",NA,NA
+"10","EL7.1SEC",36.01806,-78.8959,NA,"","South Ellerbe Crk at Glendale Ave.","","South Ellerbe Creek","2nd order",7.1,"Neuse","Ellerbe Creek",NA,"TRc",3020201,"","","EL6.5EC","",NA,NA
+"13","EL8.1GC",35.99464,-78.8844,NA,"","Goose Crk at Holloway St.
+downstream side of culve","","Goose Creek","1st order",8.1,"Neuse","Ellerbe Creek",NA,"TRc",3020201,"70B","","EL7.7GC","",NA,NA
+"15","EL8.5SEC",36.01678,-78.914773,NA,"","South Ellerbe Crk at Onslow St. and Club Blvd.","","South Ellerbe Creek","1st order",8.5,"Neuse","Ellerbe Creek",NA,"TRc",3020201,"","","","",NA,NA
+"16","EL8.6SECUT",36.000188,-78.901156,NA,"","UT South Ellerbe Crk at Corner of Foster and Hunt ","","South Ellerbe Creek Upper Trib","1st order",8.6,"Neuse","Ellerbe Creek",NA,"TRc",3020201,"","","","",NA,NA
